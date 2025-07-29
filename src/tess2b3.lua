@@ -31,7 +31,7 @@
 */--]]
 
 --Lua version trying to use self:method() instead of self.method
-
+-- jit.off()
 --local mat =	require"anima.matrixffi"
 	--local function assert() end
 	local function vec3(a,b,c)
@@ -67,6 +67,7 @@
 
 	local Tess2 = {};
 	local Geom = {};
+	local Tesselator
 
 	
 	Tess2.WINDING_ODD = 0;
@@ -1340,14 +1341,14 @@
 
 	local function PQnode() 
 		local this = {}
-		this.handle = nil;
+		--this.handle = nil;
 		return this
 	end
 
 	local function PQhandleElem()
 		local this = {}
-		this.key = nil;
-		this.node = nil;
+		-- this.key = nil;
+		-- this.node = nil;
 		return this
 	end
 
@@ -1389,19 +1390,19 @@
 		floatDown_= function(this, curr )
 			local n = this.nodes;
 			local h = this.handles;
-			local hCurr, hChild;
-			local child;
+			--local hCurr, hChild;
+			--local child;
 
-			hCurr = n[curr].handle;
+			local hCurr = n[curr].handle;
 			while true do
-				child = bit.lshift(curr , 1);
+				local child = bit.lshift(curr , 1);
 				if( child < this.size and this.leq( h[n[child+1].handle].key, h[n[child].handle].key )) then
 					child = child + 1;
 				end
 
 				assert(child <= this.max);
 
-				hChild = n[child].handle;
+				local hChild = n[child].handle;
 				if( child > this.size or this.leq( h[hCurr].key, h[hChild].key )) then
 					n[curr].handle = hCurr;
 					h[hCurr].node = curr;
@@ -1486,6 +1487,7 @@
 			this.handles[free].key = keyNew;
 
 			if( this.initialized ) then
+				--print"-----------insert initiali"
 				this:floatUp_( curr );
 			end
 			return free;
@@ -2835,7 +2837,7 @@
 	end
 
 	local Tesselator_meta
-	function Tesselator() 
+	Tesselator = function() 
 		local this = {}
 		--/*** state needed for collecting the input data ***/
 		this.mesh = nil;		--/* stores the input contours, and eventually
@@ -3703,11 +3705,12 @@ local contours = {
 contours = {{}}
 --local f,err = io.open("../test/data/bird.dat")
 --local f,err = io.open("../test/data/nazca_monkey.dat")
-local f,err = io.open("../test/data/debug2.dat")
+--local f,err = io.open("../test/data/debug2.dat")
 -- local f,err = io.open("../test/data/glu_example.dat")
+local f,err = io.open("../test/data/glu_winding.dat")
 assert(f,err)
 --local mat = require"anima.matrixffi"
-require"anima"
+--require"anima"
 while true do
   local nn = f:read"*l"
   if nn==nil then break end

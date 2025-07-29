@@ -29,16 +29,18 @@
 ** Author: Mikko Mononen, Aug 2013.
 ** The code is based on GLU libtess by Eric Veach, July 1994
 */--]]
-
---jit.off()
-
+--local mat =	require"anima.matrixffi"
 	--local function assert() end
+--jit.off()
+local assert = function() end
 	local function vec3(a,b,c)
 		return {[0]=a,b,c}
 	end
 	local function vec2(a,b)
 		return {[0]=a,b}
 	end
+	-- vec3 = mat.vec3
+	-- vec2 = mat.vec2
 	local function prtable1(t,tab)
 		for k,v in pairs(t) do
 			print(tab,k,v)
@@ -64,6 +66,7 @@
 
 	local Tess2 = {};
 	local Geom = {};
+	local Tesselator
 
 	
 	Tess2.WINDING_ODD = 0;
@@ -81,10 +84,10 @@
 		local tess =  Tesselator();
 		for i = 1,#opts.contours do
 			--print("opts.vertexSize",opts.vertexSize)
-			tess.addContour(opts.vertexSize or 2, opts.contours[i]);
+			tess:addContour(opts.vertexSize or 2, opts.contours[i]);
 		end
 
-		tess.tesselate(opts.windingRule or Tess2.WINDING_ODD,
+		tess:tesselate(opts.windingRule or Tess2.WINDING_ODD,
 					   opts.elementType or Tess2.POLYGONS,
 					   opts.polySize or 3,
 					   opts.vertexSize or 2,
@@ -201,57 +204,106 @@
 	local TESShalfEdge_meta
 	local function TESShalfEdge(side)
 		local this = {}
-		this.next = nil;		--/* doubly-linked list (prev==Sym->next) */
-		this.Sym = nil;		--/* same edge, opposite direction */
-		this.Onext = nil;		--/* next edge CCW around origin */
-		this.Lnext = nil;		--/* next edge CCW around left face */
-		this.Org = nil;		--/* origin vertex (Overtex too long) */
-		this.Lface = nil;		--/* left face */
+		-- this.next = nil;		--/* doubly-linked list (prev==Sym->next) */
+		-- this.Sym = nil;		--/* same edge, opposite direction */
+		-- this.Onext = nil;		--/* next edge CCW around origin */
+		-- this.Lnext = nil;		--/* next edge CCW around left face */
+		-- this.Org = nil;		--/* origin vertex (Overtex too long) */
+		-- this.Lface = nil;		--/* left face */
 
 		--/* Internal data (keep hidden) */
 		this.activeRegion = nil;	--/* a region with this upper edge (sweep.c) */
 		this.winding = 0;			--/* change in winding number when crossing
 									--   from the right face to the left face */
 		this.side = side;
+		-- function this:Rface()
+			-- return self.Sym.Lface
+		-- end
+		-- function this:Dst()
+			-- return self.Sym.Org
+		-- end
+		-- function this:Oprev()
+			-- return self.Sym.Lnext
+		-- end
+		-- function this:Lprev()
+			-- return self.Onext.Sym
+		-- end
+		-- function this:Dprev()
+			-- return self.Lnext.Sym
+		-- end
+		-- function this:Rprev()
+			-- return self.Sym.Onext
+		-- end
+		-- function this:Dnext()
+			-- return self.Sym.Onext.Sym
+		-- end
+		-- function this:Rnext()
+			-- return self.Sym.Lnext.Sym
+		-- end
 		return setmetatable(this, TESShalfEdge_meta)
 	end
 
 	TESShalfEdge_meta = {
-		__index = function(this,k) 
-			if(k == "Rface") then
-				return this.Sym.Lface
-			elseif(k == "Dst") then
-				return this.Sym.Org;
-			elseif(k == "Oprev") then
-				return this.Sym.Lnext;
-			elseif(k == "Lprev") then
-				return this.Onext.Sym;
-			elseif(k == "Dprev") then
-				return this.Lnext.Sym;
-			elseif(k == "Rprev") then
-				return this.Sym.Onext;
-			elseif(k == "Dnext") then
-				return this.Sym.Onext.Sym;
-			elseif(k == "Rnext") then
-				return this.Sym.Lnext.Sym;
-			end
+		__index = { --function(this,k) 
+			-- if(k == "Rface") then
+				-- return this.Sym.Lface
+			-- elseif(k == "Dst") then
+				-- return this.Sym.Org;
+			-- elseif(k == "Oprev") then
+				-- return this.Sym.Lnext;
+			-- elseif(k == "Lprev") then
+				-- return this.Onext.Sym;
+			-- elseif(k == "Dprev") then
+				-- return this.Lnext.Sym;
+			-- elseif(k == "Rprev") then
+				-- return this.Sym.Onext;
+			-- elseif(k == "Dnext") then
+				-- return this.Sym.Onext.Sym;
+			-- elseif(k == "Rnext") then
+				-- return this.Sym.Lnext.Sym;
+			-- end
+		-- end,
+		Rface = function(self)
+			return self.Sym.Lface
 		end,
+		Dst=function (self)
+			return self.Sym.Org
+		end,
+		Oprev = function(self)
+			return self.Sym.Lnext
+		end,
+		Lprev = function (self)
+			return self.Onext.Sym
+		end,
+		Dprev =function (self)
+			return self.Lnext.Sym
+		end,
+		Rprev=function (self)
+			return self.Sym.Onext
+		end,
+		Dnext=function (self)
+			return self.Sym.Onext.Sym
+		end,
+		Rnext=function (self)
+			return self.Sym.Lnext.Sym
+		end
+		},
 		__newindex = function(this, k, v)
-			if(k == "Rface") then
+			if(k == "setRface") then
 				this.Sym.Lface = v;
-			elseif(k == "Dst") then
+			elseif(k == "setDst") then
 				this.Sym.Org = v;
-			elseif(k == "Oprev") then
+			elseif(k == "setOprev") then
 				this.Sym.Lnext = v;
-			elseif(k == "Lprev") then
+			elseif(k == "setLprev") then
 				this.Onext.Sym = v;
-			elseif(k == "Dprev") then
+			elseif(k == "setDprev") then
 				this.Lnext.Sym = v; 
-			elseif(k == "Rprev") then
+			elseif(k == "setRprev") then
 				this.Sym.Onext = v;
-			elseif(k == "Dnext") then
+			elseif(k == "setDnext") then
 				this.Sym.Onext.Sym = v; 
-			elseif(k == "Rnext") then
+			elseif(k == "setRnext") then
 				this.Sym.Lnext.Sym = v; 
 			else
 				--print("newindex",k,v)
@@ -305,8 +357,8 @@
 		this.eHead = e;		--/* dummy header for edge list */
 		this.eHeadSym = eSym;	--/* and its symmetric counterpart */
 		--prtable("TESSmesh",this)
-		--return setmetatable(this, TESSmesh_meta)
-		---[[
+		return setmetatable(this, TESSmesh_meta)
+		--[[
 		local z = setmetatable({this=this}, {__index = _G})
 		for k,v in pairs(TESSmesh_meta.meta2) do
 			setfenv(v,z)
@@ -396,8 +448,8 @@
 
 	TESSmesh_meta = {
 		--__index = function(this, k)
-		meta2 = {
-		--__index = {
+		--meta2 = {
+		__index = {
 		--[[/* MakeEdge creates a new pair of half-edges which form their own loop.
 		* No vertex or face structures are allocated, but these must be assigned
 		* before the current edge operation is completed.
@@ -584,7 +636,7 @@
 		* The loop consists of the two new half-edges.
 		*/--]]
 		--//TESShalfEdge *tessMeshMakeEdge( TESSmesh *mesh )
-		makeEdge = function() 
+		makeEdge = function(this) 
 			local newVertex1 = TESSvertex();
 			local newVertex2 = TESSvertex();
 			local newFace = TESSface();
@@ -620,7 +672,7 @@
 		* If eDst == eOrg->Oprev, the old vertex will have a single edge.
 		*/--]]
 		--//int tessMeshSplice( TESSmesh* mesh, TESShalfEdge *eOrg, TESShalfEdge *eDst )
-		splice = function(eOrg, eDst) 
+		splice = function(this,eOrg, eDst) 
 			local joiningLoops = false;
 			local joiningVertices = false;
 
@@ -671,27 +723,27 @@
 		* unnecessary vertices and faces.
 		*/--]]
 		--//int tessMeshDelete( TESSmesh *mesh, TESShalfEdge *eDel )
-		delete = function(eDel) 
+		delete = function(this,eDel) 
 			local eDelSym = eDel.Sym;
 			local joiningLoops = false;
 
 			--[[/* First step: disconnect the origin vertex eDel->Org.  We make all
 			* changes to get a consistent mesh in this "intermediate" state.
 			*/--]]
-			if( eDel.Lface ~= eDel.Rface ) then
+			if( eDel.Lface ~= eDel:Rface() ) then
 				--/* We are joining two loops into one -- remove the left face */
 				joiningLoops = true;
-				this.killFace_( eDel.Lface, eDel.Rface );
+				this.killFace_( eDel.Lface, eDel:Rface() );
 			end
 
 			if( eDel.Onext == eDel ) then
 				this.killVertex_( eDel.Org, nil );
 			else 
 				--/* Make sure that eDel->Org and eDel->Rface point to valid half-edges */
-				eDel.Rface.anEdge = eDel.Oprev;
+				eDel:Rface().anEdge = eDel:Oprev();
 				eDel.Org.anEdge = eDel.Onext;
 
-				this.splice_( eDel, eDel.Oprev );
+				this.splice_( eDel, eDel:Oprev() );
 				if( not joiningLoops ) then
 					local newFace = TESSface();
 
@@ -708,9 +760,9 @@
 				this.killFace_( eDelSym.Lface, nil );
 			else 
 				--/* Make sure that eDel->Dst and eDel->Lface point to valid half-edges */
-				eDel.Lface.anEdge = eDelSym.Oprev;
+				eDel.Lface.anEdge = eDelSym:Oprev();
 				eDelSym.Org.anEdge = eDelSym.Onext;
-				this.splice_( eDelSym, eDelSym.Oprev );
+				this.splice_( eDelSym, eDelSym:Oprev() );
 			end
 
 			--/* Any isolated vertices or faces have already been freed. */
@@ -729,7 +781,7 @@
 		* eOrg and eNew will have the same left face.
 		*/--]]
 		--// TESShalfEdge *tessMeshAddEdgeVertex( TESSmesh *mesh, TESShalfEdge *eOrg );
-		addEdgeVertex = function(eOrg) 
+		addEdgeVertex = function(this,eOrg) 
 			local eNew = this.makeEdge_( eOrg );
 			local eNewSym = eNew.Sym;
 
@@ -737,7 +789,7 @@
 			this.splice_( eNew, eOrg.Lnext );
 
 			--/* Set the vertex and face information */
-			eNew.Org = eOrg.Dst;
+			eNew.Org = eOrg:Dst();
 
 			local newVertex = TESSvertex();
 			this.makeVertex_( newVertex, eNewSym, eNew.Org );
@@ -754,18 +806,18 @@
 		* eOrg and eNew will have the same left face.
 		*/--]]
 		--// TESShalfEdge *tessMeshSplitEdge( TESSmesh *mesh, TESShalfEdge *eOrg );
-		splitEdge = function(eOrg, eDst) 
-			local tempHalfEdge = this.addEdgeVertex( eOrg );
+		splitEdge = function(this,eOrg, eDst) 
+			local tempHalfEdge = this:addEdgeVertex( eOrg );
 			local eNew = tempHalfEdge.Sym;
 
 			--/* Disconnect eOrg from eOrg->Dst and connect it to eNew->Org */
-			this.splice_( eOrg.Sym, eOrg.Sym.Oprev );
+			this.splice_( eOrg.Sym, eOrg.Sym:Oprev() );
 			this.splice_( eOrg.Sym, eNew );
 
 			--/* Set the vertex and face information */
-			eOrg.Dst = eNew.Org;
-			eNew.Dst.anEdge = eNew.Sym;	--/* may have pointed to eOrg->Sym */
-			eNew.Rface = eOrg.Rface;
+			eOrg.setDst = eNew.Org;
+			eNew:Dst().anEdge = eNew.Sym;	--/* may have pointed to eOrg->Sym */
+			eNew.setRface = eOrg:Rface();
 			eNew.winding = eOrg.winding;	--/* copy old winding information */
 			eNew.Sym.winding = eOrg.Sym.winding;
 
@@ -785,7 +837,7 @@
 		*/--]]
 
 		--// TESShalfEdge *tessMeshConnect( TESSmesh *mesh, TESShalfEdge *eOrg, TESShalfEdge *eDst );
-		connect = function(eOrg, eDst) 
+		connect = function(this,eOrg, eDst) 
 			local joiningLoops = false;  
 			local eNew = this.makeEdge_( eOrg );
 			local eNewSym = eNew.Sym;
@@ -801,7 +853,7 @@
 			this.splice_( eNewSym, eDst );
 
 			--/* Set the vertex and face information */
-			eNew.Org = eOrg.Dst;
+			eNew.Org = eOrg:Dst();
 			eNewSym.Org = eDst.Org;
 			eNewSym.Lface = eOrg.Lface;
 			eNew.Lface = eOrg.Lface;
@@ -837,7 +889,7 @@
 				eNext = e.Lnext;
 
 				e.Lface = nil;
-				if( e.Rface == nil ) then
+				if( e:Rface() == nil ) then
 					--/* delete the edge -- see TESSmeshDelete above */
 
 					if( e.Onext == e ) then
@@ -845,7 +897,7 @@
 					else 
 						--/* Make sure that e->Org points to a valid half-edge */
 						e.Org.anEdge = e.Onext;
-						this.splice_( e, e.Oprev );
+						this.splice_( e, e:Oprev() );
 					end
 					eSym = e.Sym;
 					if( eSym.Onext == eSym ) then
@@ -853,7 +905,7 @@
 					else 
 						--/* Make sure that eSym->Org points to a valid half-edge */
 						eSym.Org.anEdge = eSym.Onext;
-						this.splice_( eSym, eSym.Oprev );
+						this.splice_( eSym, eSym:Oprev() );
 					end
 					this.killEdge_( e );
 				end
@@ -906,11 +958,11 @@
 						symNv = this.countFaceVerts_( eSym.Lface );
 						if( (curNv+symNv-2) <= maxVertsPerFace ) then
 							--// Merge if the resulting poly is convex.
-							if( Geom.vertCCW( eCur.Lprev.Org, eCur.Org, eSym.Lnext.Lnext.Org ) and
-								Geom.vertCCW( eSym.Lprev.Org, eSym.Org, eCur.Lnext.Lnext.Org ) )
+							if( Geom.vertCCW( eCur:Lprev().Org, eCur.Org, eSym.Lnext.Lnext.Org ) and
+								Geom.vertCCW( eSym:Lprev().Org, eSym.Org, eCur.Lnext.Lnext.Org ) )
 							then
 								eNext = eSym.Lnext;
-								this.delete( eSym );
+								this:delete( eSym );
 								eCur = nil;
 								eSym = nil;
 							end
@@ -932,7 +984,7 @@
 
 		--/* tessMeshCheckMesh( mesh ) checks a mesh for self-consistency.
 		--*/
-		check = function() 
+		check = function(this) 
 			local fHead = this.fHead;
 			local vHead = this.vHead;
 			local eHead = this.eHead;
@@ -985,7 +1037,7 @@
 				assert( e.Sym ~= e );
 				assert( e.Sym.Sym == e );
 				assert( e.Org ~= nil );
-				assert( e.Dst ~= nil );
+				assert( e:Dst() ~= nil );
 				assert( e.Lnext.Onext.Sym == e );
 				assert( e.Onext.Sym.Lnext == e );
 				ePrev = e
@@ -994,8 +1046,8 @@
 			assert( e.Sym.next == ePrev.Sym
 				and e.Sym == this.eHeadSym
 				and e.Sym.Sym == e
-				and e.Org == nil and e.Dst == nil
-				and e.Lface == nil and e.Rface == nil );
+				and e.Org == nil and e:Dst() == nil
+				and e.Lface == nil and e:Rface() == nil );
 		end}
 		--if meta2[k] then return meta2[k] end
 		--return meta2[k]
@@ -1017,11 +1069,11 @@
 	end;
 
 	Geom.edgeGoesLeft = function(e) 
-		return Geom.vertLeq( e.Dst, e.Org );
+		return Geom.vertLeq( e:Dst(), e.Org );
 	end;
 
 	Geom.edgeGoesRight = function(e) 
-		return Geom.vertLeq( e.Org, e.Dst );
+		return Geom.vertLeq( e.Org, e:Dst() );
 	end;
 
 	Geom.vertL1dist = function(u,v) 
@@ -1249,7 +1301,7 @@
 	local Dict_meta
 	local function Dict(frame, leq)
 		local this = {}
-		this.head = DictNode();
+		this.head = {} --DictNode();
 		this.head.next = this.head;
 		this.head.prev = this.head;
 		this.frame = frame;
@@ -1258,9 +1310,10 @@
 	end;
 
 	Dict_meta = {
-		__index = function(this, k)
-		local meta2 = {
-		min= function() 
+		__index = --function(this, k)
+		--local meta2 = 
+		{
+		min= function(this) 
 			return this.head.next;
 		end,
 
@@ -1268,11 +1321,11 @@
 			return this.head.prev;
 		end,
 
-		insert= function(k) 
-			return this.insertBefore(this.head, k);
+		insert= function(this,k) 
+			return this:insertBefore(this.head, k);
 		end,
 
-		search= function(key) 
+		search= function(this,key) 
 			--[[/* Search returns the node with the smallest key greater than or equal
 			* to the given key.  If there is no such key, returns a node whose
 			* key is NULL.  Similarly, Succ(Max(d)) has a NULL key, etc.
@@ -1286,12 +1339,12 @@
 			return node;
 		end,
 
-		insertBefore= function(node, key) 
+		insertBefore= function(this,node, key) 
 			repeat
 				node = node.prev;
-			until not( node.key ~= nil and not this.leq(this.frame, node.key, key));
+			until ( node.key == nil or  this.leq(this.frame, node.key, key));
 
-			local newNode = DictNode();
+			local newNode = {} --DictNode();
 			newNode.key = key;
 			newNode.next = node.next;
 			node.next.prev = newNode;
@@ -1306,8 +1359,7 @@
 			node.prev.next = node.next;
 		end
 		}
-		return meta2[k]
-		end
+
 	};
 
 
@@ -1356,9 +1408,10 @@
 	end;
 
 	PriorityQ_meta = {
-		__index = function(this, k)
-		local meta2 = {
-		floatDown_= function( curr )
+		__index = --function(this, k)
+		--local meta2 = 
+		{
+		floatDown_= function(this, curr )
 			local n = this.nodes;
 			local h = this.handles;
 			local hCurr, hChild;
@@ -1385,7 +1438,7 @@
 			end
 		end,
 
-		floatUp_= function( curr )
+		floatUp_= function(this, curr )
 			local n = this.nodes;
 			local h = this.handles;
 			local hCurr, hParent;
@@ -1406,23 +1459,23 @@
 			end
 		end,
 
-		init = function() 
+		init = function(this) 
 			--/* This method of building a heap is O(n), rather than O(n lg n). */
 			--for( local i = this.size; i >= 1; --i ) {
 			for i= this.size,1,-1 do
-				this.floatDown_( i );
+				this:floatDown_( i );
 			end
 			this.initialized = true;
 		end,
 
-		min= function() 
+		min= function(this) 
 			return this.handles[this.nodes[1].handle].key;
 		end,
 
 		--/* really pqHeapInsert */
 		--/* returns INV_HANDLE iff out of memory */
 		--//PQhandle pqHeapInsert( TESSalloc* alloc, PriorityQHeap *pq, PQkey keyNew )
-		insert= function(keyNew)
+		insert= function(this, keyNew)
 			local curr;
 			local free;
 			
@@ -1458,13 +1511,13 @@
 			this.handles[free].key = keyNew;
 
 			if( this.initialized ) then
-				this.floatUp_( curr );
+				this:floatUp_( curr );
 			end
 			return free;
 		end,
 
 		--//PQkey pqHeapExtractMin( PriorityQHeap *pq )
-		extractMin= function() 
+		extractMin= function(this) 
 			local n = this.nodes;
 			local h = this.handles;
 			local hMin = n[1].handle;
@@ -1481,7 +1534,7 @@
 
 				this.size = this.size - 1
 				if( this.size > 0 ) then
-					this.floatDown_( 1 );
+					this:floatDown_( 1 );
 				end
 			end
 			return min;
@@ -1501,9 +1554,9 @@
 			this.size = this.size - 1
 			if( curr <= this.size ) then
 				if( curr <= 1 or this.leq( h[n[bit.rshift(curr,1)].handle].key, h[n[curr].handle].key )) then
-					this.floatDown_( curr );
+					this:floatDown_( curr );
 				else 
-					this.floatUp_( curr );
+					this:floatUp_( curr );
 				end
 			end
 			h[hCurr].key = nil;
@@ -1511,8 +1564,8 @@
 			this.freeList = hCurr;
 		end
 		}
-		return meta2[k] 
-		end
+		--return meta2[k] 
+		--end
 	};
 
 
@@ -1612,25 +1665,25 @@
 		local e1 = reg1.eUp;
 		local e2 = reg2.eUp;
 
-		if( e1.Dst == ev ) then
-			if( e2.Dst == ev ) then
+		if( e1:Dst() == ev ) then
+			if( e2:Dst() == ev ) then
 				--/* Two edges right of the sweep line which meet at the sweep event.
 				--* Sort them by slope.
 				--*/
 				if( Geom.vertLeq( e1.Org, e2.Org )) then
-					return Geom.edgeSign( e2.Dst, e1.Org, e2.Org ) <= 0;
+					return Geom.edgeSign( e2:Dst(), e1.Org, e2.Org ) <= 0;
 				end
-				return Geom.edgeSign( e1.Dst, e2.Org, e1.Org ) >= 0;
+				return Geom.edgeSign( e1:Dst(), e2.Org, e1.Org ) >= 0;
 			end
-			return Geom.edgeSign( e2.Dst, ev, e2.Org ) <= 0;
+			return Geom.edgeSign( e2:Dst(), ev, e2.Org ) <= 0;
 		end
-		if( e2.Dst == ev ) then
-			return Geom.edgeSign( e1.Dst, ev, e1.Org ) >= 0;
+		if( e2:Dst() == ev ) then
+			return Geom.edgeSign( e1:Dst(), ev, e1.Org ) >= 0;
 		end
 
 		--/* General case - compute signed distance *from* e1, e2 to event */
-		local t1 = Geom.edgeEval( e1.Dst, ev, e1.Org );
-		local t2 = Geom.edgeEval( e2.Dst, ev, e2.Org );
+		local t1 = Geom.edgeEval( e1:Dst(), ev, e1.Org );
+		local t2 = Geom.edgeEval( e2:Dst(), ev, e2.Org );
 		return (t1 >= t2);
 	end
 
@@ -1654,7 +1707,7 @@
 		--* Replace an upper edge which needs fixing (see ConnectRightVertex).
 		--*/
 		assert( reg.fixUpperEdge );
-		tess.mesh.delete( reg.eUp );
+		tess.mesh:delete( reg.eUp );
 		reg.fixUpperEdge = false;
 		reg.eUp = newEdge;
 		newEdge.activeRegion = reg;
@@ -1674,7 +1727,7 @@
 		--* now is the time to fix it.
 		--*/
 		if( reg.fixUpperEdge ) then
-			e = tess.mesh.connect( Sweep.regionBelow(reg).eUp.Sym, reg.eUp.Lnext );
+			e = tess.mesh:connect( Sweep.regionBelow(reg).eUp.Sym, reg.eUp.Lnext );
 			if (e == nil) then return nil end
 			Sweep.fixUpperEdge( tess, reg, e );
 			reg = Sweep.regionAbove( reg );
@@ -1684,11 +1737,11 @@
 
 	--//static ActiveRegion *TopRightRegion( ActiveRegion *reg )
 	Sweep.topRightRegion = function( reg )
-		local dst = reg.eUp.Dst;
+		local dst = reg.eUp:Dst();
 		--/* Find the region above the uppermost edge with the same destination */
 		repeat
 			reg = Sweep.regionAbove( reg );
-		until not( reg.eUp.Dst == dst );
+		until not( reg.eUp:Dst() == dst );
 		return reg;
 	end
 
@@ -1702,7 +1755,7 @@
 		-- */
 		local regNew = ActiveRegion();
 		regNew.eUp = eNewUp;
-		regNew.nodeUp = tess.dict.insertBefore( regAbove.nodeUp, regNew );
+		regNew.nodeUp = tess.dict:insertBefore( regAbove.nodeUp, regNew );
 	--//	if (regNew->nodeUp == NULL) longjmp(tess->env,1);
 		regNew.fixUpperEdge = false;
 		regNew.sentinel = false;
@@ -1792,15 +1845,15 @@
 				--/* If the edge below was a temporary edge introduced by
 				--* ConnectRightVertex, now is the time to fix it.
 				--*/
-				e = tess.mesh.connect( ePrev.Lprev, e.Sym );
+				e = tess.mesh:connect( ePrev:Lprev(), e.Sym );
 	--//			if (e == NULL) longjmp(tess->env,1);
 				Sweep.fixUpperEdge( tess, reg, e );
 			end
 
 			--/* Relink edges so that ePrev->Onext == e */
 			if( ePrev.Onext ~= e ) then
-				tess.mesh.splice( e.Oprev, e );
-				tess.mesh.splice( ePrev, e );
+				tess.mesh:splice( e:Oprev(), e );
+				tess.mesh:splice( ePrev, e );
 			end
 			Sweep.finishRegion( tess, regPrev );	--/* may change reg->eUp */
 			ePrev = reg.eUp;
@@ -1829,7 +1882,7 @@
 		--/* Insert the new right-going edges in the dictionary */
 		e = eFirst;
 		repeat
-			assert( Geom.vertLeq( e.Org, e.Dst ));
+			assert( Geom.vertLeq( e.Org, e:Dst() ));
 			Sweep.addRegionBelow( tess, regUp, e.Sym );
 			e = e.Onext;
 		until not ( e ~= eLast );
@@ -1839,7 +1892,7 @@
 		-- * edges to match the dictionary ordering (if necessary).
 		-- */
 		if( eTopLeft == nil ) then
-			eTopLeft = Sweep.regionBelow( regUp ).eUp.Rprev;
+			eTopLeft = Sweep.regionBelow( regUp ).eUp:Rprev();
 		end
 		regPrev = regUp;
 		ePrev = eTopLeft;
@@ -1850,8 +1903,8 @@
 
 			if( e.Onext ~= ePrev ) then
 				--/* Unlink e from its current position, and relink below ePrev */
-				tess.mesh.splice( e.Oprev, e );
-				tess.mesh.splice( ePrev.Oprev, e );
+				tess.mesh:splice( e:Oprev(), e );
+				tess.mesh:splice( ePrev:Oprev(), e );
 			end
 			--/* Compute the winding number and "inside" flag for the new regions */
 			reg.windingNumber = regPrev.windingNumber - e.winding;
@@ -1864,7 +1917,7 @@
 			if( not firstTime and Sweep.checkForRightSplice( tess, regPrev )) then
 				Sweep.addWinding( e, ePrev );
 				Sweep.deleteRegion( tess, regPrev );
-				tess.mesh.delete( ePrev );
+				tess.mesh:delete( ePrev );
 			end
 			firstTime = false;
 			regPrev = reg;
@@ -1886,7 +1939,7 @@
 		-- * Two vertices with idential coordinates are combined into one.
 		-- * e1->Org is kept, while e2->Org is discarded.
 		-- */
-		tess.mesh.splice( e1, e2 ); 
+		tess.mesh:splice( e1, e2 ); 
 	end
 
 	--//static void VertexWeights( TESSvertex *isect, TESSvertex *org, TESSvertex *dst, TESSreal *weights )
@@ -1953,29 +2006,29 @@
 		local eLo = regLo.eUp;
 
 		if( Geom.vertLeq( eUp.Org, eLo.Org )) then
-			if( Geom.edgeSign( eLo.Dst, eUp.Org, eLo.Org ) > 0 ) then return false end
+			if( Geom.edgeSign( eLo:Dst(), eUp.Org, eLo.Org ) > 0 ) then return false end
 
 			--/* eUp->Org appears to be below eLo */
 			if( not Geom.vertEq( eUp.Org, eLo.Org )) then
 				--/* Splice eUp->Org into eLo */
-				tess.mesh.splitEdge( eLo.Sym );
-				tess.mesh.splice( eUp, eLo.Oprev );
+				tess.mesh:splitEdge( eLo.Sym );
+				tess.mesh:splice( eUp, eLo:Oprev() );
 				regLo.dirty = true;
 				regUp.dirty = true
 
 			elseif( eUp.Org ~= eLo.Org ) then
 				--/* merge the two vertices, discarding eUp->Org */
 				tess.pq.delete( eUp.Org.pqHandle );
-				Sweep.spliceMergeVertices( tess, eLo.Oprev, eUp );
+				Sweep.spliceMergeVertices( tess, eLo:Oprev(), eUp );
 			end
 		else 
-			if( Geom.edgeSign( eUp.Dst, eLo.Org, eUp.Org ) < 0 ) then return false end
+			if( Geom.edgeSign( eUp:Dst(), eLo.Org, eUp.Org ) < 0 ) then return false end
 
 			--/* eLo->Org appears to be above eUp, so splice eLo->Org into eUp */
 			regUp.dirty = true;
 			Sweep.regionAbove(regUp).dirty = true
-			tess.mesh.splitEdge( eUp.Sym );
-			tess.mesh.splice( eLo.Oprev, eUp );
+			tess.mesh:splitEdge( eUp.Sym );
+			tess.mesh:splice( eLo:Oprev(), eUp );
 		end
 		return true;
 	end
@@ -2005,26 +2058,26 @@
 		local eLo = regLo.eUp;
 		local e;
 
-		assert( not Geom.vertEq( eUp.Dst, eLo.Dst ));
+		assert( not Geom.vertEq( eUp:Dst(), eLo:Dst() ));
 
-		if( Geom.vertLeq( eUp.Dst, eLo.Dst )) then
-			if( Geom.edgeSign( eUp.Dst, eLo.Dst, eUp.Org ) < 0 ) then return false end
+		if( Geom.vertLeq( eUp:Dst(), eLo:Dst() )) then
+			if( Geom.edgeSign( eUp:Dst(), eLo:Dst(), eUp.Org ) < 0 ) then return false end
 
 			--/* eLo->Dst is above eUp, so splice eLo->Dst into eUp */
 			regUp.dirty = true;
 			Sweep.regionAbove(regUp).dirty = true
-			e = tess.mesh.splitEdge( eUp );
-			tess.mesh.splice( eLo.Sym, e );
+			e = tess.mesh:splitEdge( eUp );
+			tess.mesh:splice( eLo.Sym, e );
 			e.Lface.inside = regUp.inside;
 		else 
-			if( Geom.edgeSign( eLo.Dst, eUp.Dst, eLo.Org ) > 0 ) then return false end
+			if( Geom.edgeSign( eLo:Dst(), eUp:Dst(), eLo.Org ) > 0 ) then return false end
 
 			--/* eUp->Dst is below eLo, so splice eUp->Dst into eLo */
 			regLo.dirty = true;
 			regUp.dirty = true
-			e = tess.mesh.splitEdge( eLo );
-			tess.mesh.splice( eUp.Lnext, eLo.Sym );
-			e.Rface.inside = regUp.inside;
+			e = tess.mesh:splitEdge( eLo );
+			tess.mesh:splice( eUp.Lnext, eLo.Sym );
+			e:Rface().inside = regUp.inside;
 		end
 		return true;
 	end
@@ -2046,8 +2099,8 @@
 		local eLo = regLo.eUp;
 		local orgUp = eUp.Org;
 		local orgLo = eLo.Org;
-		local dstUp = eUp.Dst;
-		local dstLo = eLo.Dst;
+		local dstUp = eUp:Dst();
+		local dstLo = eLo:Dst();
 		local tMinUp, tMaxLo;
 		local isect = TESSvertex() --CHECK was TESSvertex
 		local orgMin;
@@ -2120,25 +2173,25 @@
 			-- */
 			if( dstLo == tess.event ) then
 				--/* Splice dstLo into eUp, and process the new region(s) */
-				tess.mesh.splitEdge( eUp.Sym );
-				tess.mesh.splice( eLo.Sym, eUp );
+				tess.mesh:splitEdge( eUp.Sym );
+				tess.mesh:splice( eLo.Sym, eUp );
 				regUp = Sweep.topLeftRegion( tess, regUp );
 	--//			if (regUp == NULL) longjmp(tess->env,1);
 				eUp = Sweep.regionBelow(regUp).eUp;
 				Sweep.finishLeftRegions( tess, Sweep.regionBelow(regUp), regLo );
-				Sweep.addRightEdges( tess, regUp, eUp.Oprev, eUp, eUp, true );
+				Sweep.addRightEdges( tess, regUp, eUp:Oprev(), eUp, eUp, true );
 				return true;
 			end
 			if( dstUp == tess.event ) then
 				--/* Splice dstUp into eLo, and process the new region(s) */
-				tess.mesh.splitEdge( eLo.Sym );
-				tess.mesh.splice( eUp.Lnext, eLo.Oprev ); 
+				tess.mesh:splitEdge( eLo.Sym );
+				tess.mesh:splice( eUp.Lnext, eLo:Oprev() ); 
 				regLo = regUp;
 				regUp = Sweep.topRightRegion( regUp );
-				e = Sweep.regionBelow(regUp).eUp.Rprev;
-				regLo.eUp = eLo.Oprev;
+				e = Sweep.regionBelow(regUp).eUp:Rprev();
+				regLo.eUp = eLo:Oprev();
 				eLo = Sweep.finishLeftRegions( tess, regLo, nil );
-				Sweep.addRightEdges( tess, regUp, eLo.Onext, eUp.Rprev, e, true );
+				Sweep.addRightEdges( tess, regUp, eLo.Onext, eUp:Rprev(), e, true );
 				return true;
 			end
 			--/* Special case: called from ConnectRightVertex.  If either
@@ -2148,14 +2201,14 @@
 			if( Geom.edgeSign( dstUp, tess.event, isect ) >= 0 ) then
 				regUp.dirty = true;
 				Sweep.regionAbove(regUp).dirty = true
-				tess.mesh.splitEdge( eUp.Sym );
+				tess.mesh:splitEdge( eUp.Sym );
 				eUp.Org.s = tess.event.s;
 				eUp.Org.t = tess.event.t;
 			end
 			if( Geom.edgeSign( dstLo, tess.event, isect ) <= 0 ) then
 				regLo.dirty = true;
 				regUp.dirty =  true
-				tess.mesh.splitEdge( eLo.Sym );
+				tess.mesh:splitEdge( eLo.Sym );
 				eLo.Org.s = tess.event.s;
 				eLo.Org.t = tess.event.t;
 			end
@@ -2171,12 +2224,12 @@
 		-- * the mesh (ie. eUp->Lface) to be smaller than the faces in the
 		-- * unprocessed original contours (which will be eLo->Oprev->Lface).
 		-- */
-		tess.mesh.splitEdge( eUp.Sym );
-		tess.mesh.splitEdge( eLo.Sym );
-		tess.mesh.splice( eLo.Oprev, eUp );
+		tess.mesh:splitEdge( eUp.Sym );
+		tess.mesh:splitEdge( eLo.Sym );
+		tess.mesh:splice( eLo:Oprev(), eUp );
 		eUp.Org.s = isect.s;
 		eUp.Org.t = isect.t;
-		eUp.Org.pqHandle = tess.pq.insert( eUp.Org );
+		eUp.Org.pqHandle = tess.pq:insert( eUp.Org );
 		Sweep.getIntersectData( tess, eUp.Org, orgUp, dstUp, orgLo, dstLo );
 		Sweep.regionAbove(regUp).dirty ,regUp.dirty ,regLo.dirty = true,true,true;
 		return false;
@@ -2213,7 +2266,7 @@
 			eUp = regUp.eUp;
 			eLo = regLo.eUp;
 
-			if( eUp.Dst ~= eLo.Dst ) then
+			if( eUp:Dst() ~= eLo:Dst() ) then
 				--/* Check that the edge ordering is obeyed at the Dst vertices. */
 				if( Sweep.checkForLeftSplice( tess, regUp )) then
 
@@ -2223,21 +2276,21 @@
 					-- */
 					if( regLo.fixUpperEdge ) then
 						Sweep.deleteRegion( tess, regLo );
-						tess.mesh.delete( eLo );
+						tess.mesh:delete( eLo );
 						regLo = Sweep.regionBelow( regUp );
 						eLo = regLo.eUp;
 					elseif( regUp.fixUpperEdge ) then
 						Sweep.deleteRegion( tess, regUp );
-						tess.mesh.delete( eUp );
+						tess.mesh:delete( eUp );
 						regUp = Sweep.regionAbove( regLo );
 						eUp = regUp.eUp;
 					end
 				end
 			end
 			if( eUp.Org ~= eLo.Org ) then
-				if(    eUp.Dst ~= eLo.Dst
+				if(    eUp:Dst() ~= eLo:Dst()
 					and not regUp.fixUpperEdge and not regLo.fixUpperEdge
-					and (eUp.Dst == tess.event or eLo.Dst == tess.event) )
+					and (eUp:Dst() == tess.event or eLo:Dst() == tess.event) )
 				then
 					--/* When all else fails in CheckForIntersect(), it uses tess->event
 					-- * as the intersection location.  To make this possible, it requires
@@ -2258,11 +2311,11 @@
 					Sweep.checkForRightSplice( tess, regUp );
 				end
 			end
-			if( eUp.Org == eLo.Org and eUp.Dst == eLo.Dst ) then
+			if( eUp.Org == eLo.Org and eUp:Dst() == eLo:Dst() ) then
 				--/* A degenerate loop consisting of only two edges -- delete it. */
 				Sweep.addWinding( eLo, eUp );
 				Sweep.deleteRegion( tess, regUp );
-				tess.mesh.delete( eUp );
+				tess.mesh:delete( eUp );
 				regUp = Sweep.regionAbove( regLo );
 			end
 		end
@@ -2309,7 +2362,7 @@
 		local eLo = regLo.eUp;
 		local degenerate = false;
 
-		if( eUp.Dst ~= eLo.Dst ) then
+		if( eUp:Dst() ~= eLo:Dst() ) then
 			Sweep.checkForIntersect( tess, regUp );
 		end
 
@@ -2317,14 +2370,14 @@
 		-- * through vEvent, or may coincide with new intersection vertex
 		-- */
 		if( Geom.vertEq( eUp.Org, tess.event )) then
-			tess.mesh.splice( eTopLeft.Oprev, eUp );
+			tess.mesh:splice( eTopLeft:Oprev(), eUp );
 			regUp = Sweep.topLeftRegion( tess, regUp );
 			eTopLeft = Sweep.regionBelow( regUp ).eUp;
 			Sweep.finishLeftRegions( tess, Sweep.regionBelow(regUp), regLo );
 			degenerate = true;
 		end
 		if( Geom.vertEq( eLo.Org, tess.event )) then
-			tess.mesh.splice( eBottomLeft, eLo.Oprev );
+			tess.mesh:splice( eBottomLeft, eLo:Oprev() );
 			eBottomLeft = Sweep.finishLeftRegions( tess, regLo, nil );
 			degenerate = true;
 		end
@@ -2337,11 +2390,11 @@
 		-- * Connect to the closer of eLo->Org, eUp->Org.
 		-- */
 		if( Geom.vertLeq( eLo.Org, eUp.Org )) then
-			eNew = eLo.Oprev;
+			eNew = eLo:Oprev();
 		else 
 			eNew = eUp;
 		end
-		eNew = tess.mesh.connect( eBottomLeft.Lprev, eNew );
+		eNew = tess.mesh:connect( eBottomLeft:Lprev(), eNew );
 
 		--/* Prevent cleanup, otherwise eNew might disappear before we've even
 		-- * had a chance to mark it as a temporary edge.
@@ -2380,15 +2433,15 @@
 			return;
 		end
 
-		if( not Geom.vertEq( e.Dst, vEvent )) then
+		if( not Geom.vertEq( e:Dst(), vEvent )) then
 			--/* General case -- splice vEvent into edge e which passes through it */
-			tess.mesh.splitEdge( e.Sym );
+			tess.mesh:splitEdge( e.Sym );
 			if( regUp.fixUpperEdge ) then
 				--/* This edge was fixable -- delete unused portion of original edge */
-				tess.mesh.delete( e.Onext );
+				tess.mesh:delete( e.Onext );
 				regUp.fixUpperEdge = false;
 			end
-			tess.mesh.splice( vEvent.anEdge, e );
+			tess.mesh:splice( vEvent.anEdge, e );
 			Sweep.sweepEvent( tess, vEvent );	--/* recurse */
 			return;
 		end
@@ -2408,10 +2461,10 @@
 			-- */
 			assert( eTopLeft ~= eTopRight );   --/* there are some left edges too */
 			Sweep.deleteRegion( tess, reg );
-			tess.mesh.delete( eTopRight );
-			eTopRight = eTopLeft.Oprev;
+			tess.mesh:delete( eTopRight );
+			eTopRight = eTopLeft:Oprev();
 		end
-		tess.mesh.splice( vEvent.anEdge, eTopRight );
+		tess.mesh:splice( vEvent.anEdge, eTopRight );
 		if( not Geom.edgeGoesLeft( eTopLeft )) then
 			--/* e->Dst had no left-going edges -- indicate this to AddRightEdges() */
 			eTopLeft = nil;
@@ -2446,7 +2499,7 @@
 		--/* Get a pointer to the active region containing vEvent */
 		tmp.eUp = vEvent.anEdge.Sym;
 		--/* __GL_DICTLISTKEY */ --/* tessDictListSearch */
-		regUp = tess.dict.search( tmp ).key;
+		regUp = tess.dict:search( tmp ).key;
 		regLo = Sweep.regionBelow( regUp );
 		if( not regLo ) then
 			--// This may happen if the input polygon is coplanar.
@@ -2456,7 +2509,7 @@
 		eLo = regLo.eUp;
 
 		--/* Try merging with U or L first */
-		if( Geom.edgeSign( eUp.Dst, vEvent, eUp.Org ) == 0.0 ) then
+		if( Geom.edgeSign( eUp:Dst(), vEvent, eUp.Org ) == 0.0 ) then
 			Sweep.connectLeftDegenerate( tess, regUp, vEvent );
 			return;
 		end
@@ -2464,13 +2517,13 @@
 		--/* Connect vEvent to rightmost processed vertex of either chain.
 		-- * e->Dst is the vertex that we will connect to vEvent.
 		-- */
-		reg = Geom.vertLeq( eLo.Dst, eUp.Dst ) and regUp or regLo;
+		reg = Geom.vertLeq( eLo:Dst(), eUp:Dst() ) and regUp or regLo;
 
 		if( regUp.inside or reg.fixUpperEdge) then
 			if( reg == regUp ) then
-				eNew = tess.mesh.connect( vEvent.anEdge.Sym, eUp.Lnext );
+				eNew = tess.mesh:connect( vEvent.anEdge.Sym, eUp.Lnext );
 			else 
-				local tempHalfEdge = tess.mesh.connect( eLo.Dnext, vEvent.anEdge);
+				local tempHalfEdge = tess.mesh:connect( eLo:Dnext(), vEvent.anEdge);
 				eNew = tempHalfEdge.Sym;
 			end
 			if( reg.fixUpperEdge ) then
@@ -2551,14 +2604,14 @@
 		-- * to avoid special cases at the top and bottom.
 		-- */
 		local reg = ActiveRegion();
-		local e = tess.mesh.makeEdge();
+		local e = tess.mesh:makeEdge();
 	--//	if (e == NULL) longjmp(tess->env,1);
 
 		e.Org.s = smax;
 		e.Org.t = t;
-		e.Dst.s = smin;
-		e.Dst.t = t;
-		tess.event = e.Dst;		--/* initialize it */
+		e:Dst().s = smin;
+		e:Dst().t = t;
+		tess.event = e:Dst();		--/* initialize it */
 
 		reg.eUp = e;
 		reg.windingNumber = 0;
@@ -2566,7 +2619,7 @@
 		reg.fixUpperEdge = false;
 		reg.sentinel = true;
 		reg.dirty = false;
-		reg.nodeUp = tess.dict.insert( reg );
+		reg.nodeUp = tess.dict:insert( reg );
 	--//	if (reg->nodeUp == NULL) longjmp(tess->env,1);
 	end
 
@@ -2597,8 +2650,8 @@
 		local reg;
 		local fixedEdges = 0;
 
-		while( (tess.dict.min().key) ~= nil ) do
-			reg = tess.dict.min().key
+		while( (tess.dict:min().key) ~= nil ) do
+			reg = tess.dict:min().key
 			--/*
 			-- * At the end of all processing, the dictionary should contain
 			-- * only the two sentinel edges, plus at most one "fixable" edge
@@ -2630,10 +2683,10 @@
 			eNext = e.next;
 			eLnext = e.Lnext;
 
-			if( Geom.vertEq( e.Org, e.Dst ) and e.Lnext.Lnext ~= e ) then
+			if( Geom.vertEq( e.Org, e:Dst() ) and e.Lnext.Lnext ~= e ) then
 				--/* Zero-length edge, contour has at least 3 edges */
 				Sweep.spliceMergeVertices( tess, eLnext, e );	--/* deletes e->Org */
-				tess.mesh.delete( e ); --/* e is a self-loop */
+				tess.mesh:delete( e ); --/* e is a self-loop */
 				e = eLnext;
 				eLnext = e.Lnext;
 			end
@@ -2641,10 +2694,10 @@
 				--/* Degenerate contour (one or two edges) */
 				if( eLnext ~= e ) then
 					if( eLnext == eNext or eLnext == eNext.Sym ) then eNext = eNext.next; end
-					tess.mesh.delete( eLnext );
+					tess.mesh:delete( eLnext );
 				end
 				if( e == eNext or e == eNext.Sym ) then eNext = eNext.next; end
-				tess.mesh.delete( e );
+				tess.mesh:delete( e );
 			end
 			e = eNext
 		end
@@ -2681,7 +2734,7 @@
 		v = vHead.next
 		while( v ~= vHead) do
 			--print"insert"
-			v.pqHandle = pq.insert( v );
+			v.pqHandle = pq:insert( v );
 	--//		if (v.pqHandle == INV_HANDLE)
 	--//			break;
 			v = v.next
@@ -2693,7 +2746,7 @@
 		--print("before pq.init")
 		--prtableN(pq,4)
 		
-		pq.init();
+		pq:init();
 
 		return true;
 	end
@@ -2733,7 +2786,7 @@
 			if( e.Lnext.Lnext == e ) then
 				--/* A face with only two edges */
 				Sweep.addWinding( e.Onext, e );
-				tess.mesh.delete( e );
+				tess.mesh:delete( e );
 			end
 			f = fNext
 		end
@@ -2763,12 +2816,12 @@
 		Sweep.initEdgeDict( tess );
 
 		--while( (v = tess.pq.extractMin()) ~= nil ) {
-		v = tess.pq.extractMin()
+		v = tess.pq:extractMin()
 		while(v ~= nil) do
 			--print("1extractMin", v.s, v.t, v.n, v.pqHandle)
 			--prtableN(v,1)
 			while true do
-				vNext = tess.pq.min();
+				vNext = tess.pq:min();
 				--print("vNext", vNext.s, vNext.t, vNext.n,vNext.pqHandle)
 				--prtableN(vNext,2)--.coords)
 				if( vNext == nil or not Geom.vertEq( vNext, v )) then break end
@@ -2787,27 +2840,27 @@
 				-- * gap between them.  This kind of error is especially obvious
 				-- * when using boundary extraction (TESS_BOUNDARY_ONLY).
 				-- */
-				vNext = tess.pq.extractMin();
+				vNext = tess.pq:extractMin();
 				Sweep.spliceMergeVertices( tess, v.anEdge, vNext.anEdge );
 			end
 			Sweep.sweepEvent( tess, v );
-			v = tess.pq.extractMin()
+			v = tess.pq:extractMin()
 		end
 
 		--/* Set tess->event for debugging purposes */
-		tess.event = tess.dict.min().key.eUp.Org;
+		tess.event = tess.dict:min().key.eUp.Org;
 		Sweep.debugEvent( tess );
 		Sweep.doneEdgeDict( tess );
 		Sweep.donePriorityQ( tess );
 
 		if ( not Sweep.removeDegenerateFaces( tess, tess.mesh ) ) then return false end
-		tess.mesh.check();
+		tess.mesh:check();
 
 		return true;
 	end
 
 	local Tesselator_meta
-	function Tesselator() 
+	Tesselator = function() 
 		local this = {}
 		--/*** state needed for collecting the input data ***/
 		this.mesh = nil;		--/* stores the input contours, and eventually
@@ -2817,7 +2870,7 @@
 
 		this.normal = vec3(0.0, 0.0, 0.0);	--/* user-specified normal (if provided) */
 		this.sUnit = vec3(0.0, 0.0, 0.0);	--/* unit vector in s-direction (debugging) */
-		this.tUnit = vec2(0.0, 0.0, 0.0);	--/* unit vector in t-direction (debugging) */
+		this.tUnit = vec3(0.0, 0.0, 0.0);	--/* unit vector in t-direction (debugging) */
 
 		this.bmin = vec2(0.0, 0.0);
 		this.bmax = vec2(0.0, 0.0);
@@ -2841,8 +2894,9 @@
 	end;
 
 	Tesselator_meta = {
-		__index = function(this, k)
-		local meta2 = {
+		__index = --function(this, k)
+		--local meta2 = 
+		{
 
 		dot_= function(u, v) 
 			return (u[0]*v[0] + u[1]*v[1] + u[2]*v[2]);
@@ -2958,7 +3012,7 @@
 				e = f.anEdge;
 				if( e.winding <= 0 ) then goto continue end
 				repeat
-					area = area + (e.Org.s - e.Dst.s) * (e.Org.t + e.Dst.t);
+					area = area + (e.Org.s - e:Dst().s) * (e.Org.t + e:Dst().t);
 					e = e.Lnext;
 				until not ( e ~= f.anEdge );
 				::continue::
@@ -3005,7 +3059,7 @@
 		--/* Determine the polygon normal and project vertices onto the plane
 		-- * of the polygon.
 		-- */
-		projectPolygon_= function() 
+		projectPolygon_= function(this) 
 			local v
 			local vHead = this.mesh.vHead;
 			local norm = vec3(0,0,0);
@@ -3133,32 +3187,32 @@
 			up = face.anEdge;
 			assert( up.Lnext ~= up and up.Lnext.Lnext ~= up );
 
-			--for( ; Geom.vertLeq( up.Dst, up.Org ); up = up.Lprev )
+			--for( ; Geom.vertLeq( up:Dst(), up.Org ); up = up:Lprev() )
 				--;
-			while(Geom.vertLeq( up.Dst, up.Org )) do up = up.Lprev end
-			--for( ; Geom.vertLeq( up.Org, up.Dst ); up = up.Lnext )
+			while(Geom.vertLeq( up:Dst(), up.Org )) do up = up:Lprev() end
+			--for( ; Geom.vertLeq( up.Org, up:Dst() ); up = up.Lnext )
 				--;
-			while (Geom.vertLeq( up.Org, up.Dst )) do up = up.Lnext end
-			lo = up.Lprev;
+			while (Geom.vertLeq( up.Org, up:Dst() )) do up = up.Lnext end
+			lo = up:Lprev();
 
 			while( up.Lnext ~= lo ) do
-				if( Geom.vertLeq( up.Dst, lo.Org )) then
+				if( Geom.vertLeq( up:Dst(), lo.Org )) then
 					--/* up->Dst is on the left.  It is safe to form triangles from lo->Org.
 					-- * The EdgeGoesLeft test guarantees progress even when some triangles
 					-- * are CW, given that the upper and lower chains are truly monotone.
 					-- */
 					while( lo.Lnext ~= up and (Geom.edgeGoesLeft( lo.Lnext )
-						or Geom.edgeSign( lo.Org, lo.Dst, lo.Lnext.Dst ) <= 0.0 )) do
-							local tempHalfEdge = mesh.connect( lo.Lnext, lo );
+						or Geom.edgeSign( lo.Org, lo:Dst(), lo.Lnext:Dst() ) <= 0.0 )) do
+							local tempHalfEdge = mesh:connect( lo.Lnext, lo );
 							--//if (tempHalfEdge == NULL) return 0;
 							lo = tempHalfEdge.Sym;
 					end
-					lo = lo.Lprev;
+					lo = lo:Lprev();
 				else 
 					--/* lo->Org is on the left.  We can make CCW triangles from up->Dst. */
-					while( lo.Lnext ~= up and (Geom.edgeGoesRight( up.Lprev )
-						or Geom.edgeSign( up.Dst, up.Org, up.Lprev.Org ) >= 0.0 )) do
-							local tempHalfEdge = mesh.connect( up, up.Lprev );
+					while( lo.Lnext ~= up and (Geom.edgeGoesRight( up:Lprev() )
+						or Geom.edgeSign( up:Dst(), up.Org, up:Lprev().Org ) >= 0.0 )) do
+							local tempHalfEdge = mesh:connect( up, up:Lprev() );
 							--//if (tempHalfEdge == NULL) return 0;
 							up = tempHalfEdge.Sym;
 					end
@@ -3171,7 +3225,7 @@
 			-- */
 			assert( lo.Lnext ~= up );
 			while( lo.Lnext.Lnext ~= up ) do
-				local tempHalfEdge = mesh.connect( lo.Lnext, lo );
+				local tempHalfEdge = mesh:connect( lo.Lnext, lo );
 				--//if (tempHalfEdge == NULL) return 0;
 				lo = tempHalfEdge.Sym;
 			end
@@ -3185,7 +3239,7 @@
 		-- * must be monotone.
 		-- */
 		-- //int tessMeshTessellateInterior( TESSmesh *mesh )
-		tessellateInterior_= function( mesh ) 
+		tessellateInterior_= function(this, mesh ) 
 			local f, next;
 
 			--/*LINTED*/
@@ -3242,7 +3296,7 @@
 			e = mesh.eHead.next
 			while (e ~= mesh.eHead) do
 				eNext = e.next;
-				if( e.Rface.inside ~= e.Lface.inside ) then
+				if( e:Rface().inside ~= e.Lface.inside ) then
 
 					--/* This is a boundary edge (one side is interior, one is exterior). */
 					e.winding = (e.Lface.inside) and value or -value;
@@ -3252,7 +3306,7 @@
 					if( not keepOnlyBoundary ) then
 						e.winding = 0;
 					else 
-						mesh.delete( e );
+						mesh:delete( e );
 					end
 				end
 				e = eNext
@@ -3260,14 +3314,14 @@
 		end,
 
 		getNeighbourFace_= function(edge)
-			if (not edge.Rface) then
+			if (not edge:Rface()) then
 				return -1; end
-			if (not edge.Rface.inside) then
+			if (not edge:Rface().inside) then
 				return -1; end
-			return edge.Rface.n;
+			return edge:Rface().n;
 		end,
 
-		outputPolymesh_= function( mesh, elementType, polySize, vertexSize ) 
+		outputPolymesh_= function(this, mesh, elementType, polySize, vertexSize ) 
 			local v;
 			local f;
 			local edge;
@@ -3518,7 +3572,7 @@
 			end
 		end,
 
-		addContour= function( size, vertices )
+		addContour= function(this, size, vertices )
 			--print("addContour",size, vertices)
 			--prtable(vertices)
 			local e;
@@ -3539,17 +3593,17 @@
 			for i = 1,#vertices,size do
 				if( e == nil ) then
 					--/* Make a self-loop (one vertex, one edge). */
-					e = this.mesh.makeEdge();
+					e = this.mesh:makeEdge();
 	--/*				if ( e == NULL ) {
 						-- tess->outOfMemory = 1;
 						-- return;
 					-- }*/
-					this.mesh.splice( e, e.Sym );
+					this.mesh:splice( e, e.Sym );
 				else 
 					--/* Create a new vertex and edge which immediately follow e
 					-- * in the ordering around the left face.
 					-- */
-					this.mesh.splitEdge( e );
+					this.mesh:splitEdge( e );
 					e = e.Lnext;
 				end
 
@@ -3576,7 +3630,7 @@
 		end,
 
 	--	int tessTesselate( TESStesselator *tess, int windingRule, int elementType, int polySize, int vertexSize, const TESSreal* normal )
-		tesselate= function( windingRule, elementType, polySize, vertexSize, normal )
+		tesselate= function(this, windingRule, elementType, polySize, vertexSize, normal )
 			--prtable("tesselate",normal)
 			this.vertices = {};
 			this.elements = {};
@@ -3609,7 +3663,7 @@
 			--/* Determine the polygon normal and project vertices onto the plane
 			-- * of the polygon.
 			-- */
-			this.projectPolygon_();
+			this:projectPolygon_();
 			--print"after project"
 			--prtableN(this,4)
 
@@ -3630,16 +3684,16 @@
 			if (elementType == Tess2.BOUNDARY_CONTOURS) then
 				this.setWindingNumber_( mesh, 1, true );
 			else 
-				this.tessellateInterior_( mesh ); 
+				this:tessellateInterior_( mesh ); 
 			end
 	--//		if (rc == 0) longjmp(tess->env,1);  --/* could've used a label */
 
-			mesh.check();
+			mesh:check();
 
 			if (elementType == Tess2.BOUNDARY_CONTOURS) then
 				this.outputContours_( mesh, vertexSize );     --/* output contours */
 			else
-				this.outputPolymesh_( mesh, elementType, polySize, vertexSize );     --/* output polygons */
+				this:outputPolymesh_( mesh, elementType, polySize, vertexSize );     --/* output polygons */
 			end
 
 --//			tess.mesh = nil;
@@ -3647,34 +3701,20 @@
 			return true;
 		end
 		}
-		return meta2[k] 
-		end
+		--return meta2[k] 
+		--end
 	}
 ---------------------------------------- test
 local ok, lp_time = pcall(require,"luapower.time")
 if not ok then print(lp_time) end
 local tim = ok and lp_time.time or os.time
 local clk = ok and lp_time.clock or os.clock
-local contours = {
-{50.0, 50.0,
-200.0, 50.0,
-200.0, 200.0,
-50.0, 200.0},
 
-{75.0, 75.0,
-125.0, 175.0,
-175.0, 75.0},
-
-{250.0, 50.0,
-325.0, 200.0,
-400.0, 50.0,
-250.0, 150.0,
-400.0, 150.0}
-}
-contours = {{}}
+local contours = {{}}
+--local f,err = io.open("../test/data/bird.dat")
 --local f,err = io.open("../test/data/nazca_monkey.dat")
 local f,err = io.open("../test/data/debug2.dat")
---local f,err = io.open("../test/data/glu_example.dat")
+-- local f,err = io.open("../test/data/glu_example.dat")
 --local f,err = io.open("../test/data/glu_winding.dat")
 assert(f,err)
 --local mat = require"anima.matrixffi"
@@ -3698,10 +3738,8 @@ f:close()
 -- collectgarbage()
 -- collectgarbage()
 -- collectgarbage("stop")
-local PROF = true
-if PROF then
-  require("jit.p").start("3vfsi4m1",'profReport.txt')
-end
+
+--require("jit.p").start("3vfsi4m1",'profReport.txt')
 
 local t1 = tim()
 local clk1 = clk()
@@ -3720,9 +3758,7 @@ local tess = Tess2.tesselate({
 --end
 print("done in", tim()-t1, clk()-clk1)
 
-if PROF then
-  require("jit.p").stop()
-end
+--require("jit.p").stop()
 
 if false then
 for i = 0,tess.elements.length-1,polisiz do
