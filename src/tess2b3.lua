@@ -3705,9 +3705,9 @@ local contours = {
 contours = {{}}
 --local f,err = io.open("../test/data/bird.dat")
 --local f,err = io.open("../test/data/nazca_monkey.dat")
---local f,err = io.open("../test/data/debug2.dat")
+local f,err = io.open("../test/data/debug2.dat")
 -- local f,err = io.open("../test/data/glu_example.dat")
-local f,err = io.open("../test/data/glu_winding.dat")
+--local f,err = io.open("../test/data/glu_winding.dat")
 assert(f,err)
 --local mat = require"anima.matrixffi"
 --require"anima"

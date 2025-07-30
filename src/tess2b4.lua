@@ -34,10 +34,10 @@
 --jit.off()
 local assert = function() end
 	local function vec3(a,b,c)
-		return {[0]=a,b,c}
+		return {a,b,c}
 	end
 	local function vec2(a,b)
-		return {[0]=a,b}
+		return {a,b}
 	end
 	-- vec3 = mat.vec3
 	-- vec2 = mat.vec2
@@ -2633,13 +2633,13 @@ local assert = function() end
 		tess.dict = Dict( tess, Sweep.edgeLeq );
 	--//	if (tess->dict == NULL) longjmp(tess->env,1);
 
-		local w = (tess.bmax[0] - tess.bmin[0]);
-		local h = (tess.bmax[1] - tess.bmin[1]);
+		local w = (tess.bmax[1] - tess.bmin[1]);
+		local h = (tess.bmax[2] - tess.bmin[2]);
 
-		local smin = tess.bmin[0] - w;
-		local smax = tess.bmax[0] + w;
-		local tmin = tess.bmin[1] - h;
-		local tmax = tess.bmax[1] + h;
+		local smin = tess.bmin[1] - w;
+		local smax = tess.bmax[1] + w;
+		local tmin = tess.bmin[2] - h;
+		local tmax = tess.bmax[2] + h;
 
 		Sweep.addSentinel( tess, smin, smax, tmin );
 		Sweep.addSentinel( tess, smin, smax, tmax );
@@ -2899,23 +2899,23 @@ local assert = function() end
 		{
 
 		dot_= function(u, v) 
-			return (u[0]*v[0] + u[1]*v[1] + u[2]*v[2]);
+			return (u[1]*v[1] + u[2]*v[2] + u[3]*v[3]);
 		end,
 
 		normalize_= function( v ) 
-			local len = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
+			local len = v[1]*v[1] + v[2]*v[2] + v[3]*v[3];
 			assert( len > 0.0 );
 			len = math.sqrt( len );
-			v[0] = v[0]/len;
 			v[1] = v[1]/len;
 			v[2] = v[2]/len;
+			v[3] = v[3]/len;
 		end,
 
 		longAxis_= function( v ) 
-			local i = 0;
+			local i = 1;
 			--prtable("longAxis",v)
-			if( math.abs(v[1]) > math.abs(v[0]) ) then i = 1; end
-			if( math.abs(v[2]) > math.abs(v[i]) ) then i = 2; end
+			if( math.abs(v[2]) > math.abs(v[1]) ) then i = 2; end
+			if( math.abs(v[3]) > math.abs(v[i]) ) then i = 3; end
 			return i;
 		end,
 
@@ -2930,7 +2930,7 @@ local assert = function() end
 
 			v = vHead.next;
 			--for( i = 0; i < 3; ++i ) {
-			for i=0,2 do
+			for i=1,3 do
 				c = v.coords[i];
 				minVal[i] = c;
 				minVert[i] = v;
@@ -2942,7 +2942,7 @@ local assert = function() end
 			v = vHead.next
 			while(v ~= vHead) do
 				--for( i = 0; i < 3; ++i ) {
-				for i=0,2 do
+				for i=1,3 do
 					c = v.coords[i];
 					if( c < minVal[i] ) then minVal[i] = c; minVert[i] = v; end
 					if( c > maxVal[i] ) then maxVal[i] = c; maxVert[i] = v; end
@@ -2952,12 +2952,12 @@ local assert = function() end
 			--/* Find two vertices separated by at least 1/sqrt(3) of the maximum
 			-- * distance between any two vertices
 			-- */
-			i = 0;
-			if( maxVal[1] - minVal[1] > maxVal[0] - minVal[0] ) then i = 1; end
-			if( maxVal[2] - minVal[2] > maxVal[i] - minVal[i] ) then i = 2; end
+			i = 1;
+			if( maxVal[2] - minVal[2] > maxVal[1] - minVal[1] ) then i = 2; end
+			if( maxVal[3] - minVal[3] > maxVal[i] - minVal[i] ) then i = 3; end
 			if( minVal[i] >= maxVal[i] ) then
 				--/* All vertices are the same -- normal doesn't matter */
-				norm[0] = 0; norm[1] = 0; norm[2] = 1;
+				norm[1] = 0; norm[2] = 0; norm[3] = 1;
 				return;
 			end
 
@@ -2967,31 +2967,31 @@ local assert = function() end
 			maxLen2 = 0;
 			v1 = minVert[i];
 			v2 = maxVert[i];
-			d1[0] = v1.coords[0] - v2.coords[0];
 			d1[1] = v1.coords[1] - v2.coords[1];
 			d1[2] = v1.coords[2] - v2.coords[2];
+			d1[3] = v1.coords[3] - v2.coords[3];
 			--for( v = vHead.next; v ~= vHead; v = v.next ) {
 			v = vHead.next
 			while(v ~= vHead) do
-				d2[0] = v.coords[0] - v2.coords[0];
 				d2[1] = v.coords[1] - v2.coords[1];
 				d2[2] = v.coords[2] - v2.coords[2];
-				tNorm[0] = d1[1]*d2[2] - d1[2]*d2[1];
-				tNorm[1] = d1[2]*d2[0] - d1[0]*d2[2];
-				tNorm[2] = d1[0]*d2[1] - d1[1]*d2[0];
-				tLen2 = tNorm[0]*tNorm[0] + tNorm[1]*tNorm[1] + tNorm[2]*tNorm[2];
+				d2[3] = v.coords[3] - v2.coords[3];
+				tNorm[1] = d1[2]*d2[3] - d1[3]*d2[2];
+				tNorm[2] = d1[3]*d2[1] - d1[1]*d2[3];
+				tNorm[3] = d1[1]*d2[2] - d1[2]*d2[1];
+				tLen2 = tNorm[1]*tNorm[1] + tNorm[2]*tNorm[2] + tNorm[3]*tNorm[3];
 				if( tLen2 > maxLen2 ) then
 					maxLen2 = tLen2;
-					norm[0] = tNorm[0];
 					norm[1] = tNorm[1];
 					norm[2] = tNorm[2];
+					norm[3] = tNorm[3];
 				end
 				v = v.next 
 			end
 
 			if( maxLen2 <= 0 ) then
 				--/* All points lie on a single line -- any decent normal will do */
-				norm[0] , norm[1] , norm[2] = 0,0,0;
+				norm[1] , norm[2] , norm[3] = 0,0,0;
 				norm[this.longAxis_(d1)] = 1;
 			end
 		end,
@@ -3026,9 +3026,9 @@ local assert = function() end
 					v.t = - v.t;
 					v = v.next
 				end
-				this.tUnit[0] = - this.tUnit[0];
 				this.tUnit[1] = - this.tUnit[1];
 				this.tUnit[2] = - this.tUnit[2];
+				this.tUnit[3] = - this.tUnit[3];
 			end
 		end,
 
@@ -3066,10 +3066,10 @@ local assert = function() end
 			local sUnit, tUnit;
 			local i, first, computedNormal = false;
 
-			norm[0] = this.normal[0];
 			norm[1] = this.normal[1];
 			norm[2] = this.normal[2];
-			if( norm[0] == 0.0 and norm[1] == 0.0 and norm[2] == 0.0 ) then
+			norm[3] = this.normal[3];
+			if( norm[1] == 0.0 and norm[2] == 0.0 and norm[3] == 0.0 ) then
 				this.computeNormal_( norm );
 				computedNormal = true;
 			end
@@ -3128,16 +3128,16 @@ local assert = function() end
 			v = vHead.next
 			while(v ~= vHead) do
 				if (first) then
-					this.bmax[0] = v.s;
-					this.bmin[0] = v.s
-					this.bmax[1] = v.t;
-					this.bmin[1] = v.t
+					this.bmax[1] = v.s;
+					this.bmin[1] = v.s
+					this.bmax[2] = v.t;
+					this.bmin[2] = v.t
 					first = false;
 				else 
-					if (v.s < this.bmin[0]) then this.bmin[0] = v.s; end
-					if (v.s > this.bmax[0]) then this.bmax[0] = v.s; end
-					if (v.t < this.bmin[1]) then this.bmin[1] = v.t; end
-					if (v.t > this.bmax[1]) then this.bmax[1] = v.t; end
+					if (v.s < this.bmin[1]) then this.bmin[1] = v.s; end
+					if (v.s > this.bmax[1]) then this.bmax[1] = v.s; end
+					if (v.t < this.bmin[2]) then this.bmin[2] = v.t; end
+					if (v.t > this.bmax[2]) then this.bmax[2] = v.t; end
 				end
 				 v = v.next
 			end
@@ -3418,10 +3418,10 @@ local assert = function() end
 				then
 					--// Store coordinate
 					local idx = v.n * vertexSize;
-					this.vertices[idx+0] = v.coords[0];
-					this.vertices[idx+1] = v.coords[1];
+					this.vertices[idx+0] = v.coords[1];
+					this.vertices[idx+1] = v.coords[2];
 					if ( vertexSize > 2 ) then
-						this.vertices[idx+2] = v.coords[2]; end
+						this.vertices[idx+2] = v.coords[3]; end
 					--// Store vertex index.
 					this.vertexIndices[v.n] = v.idx;
 				end
@@ -3533,10 +3533,10 @@ local assert = function() end
 			this.vertexIndices = {};
 			this.vertexIndices.length = this.vertexCount;
 
-			local nv = 0;
-			local nvi = 0;
-			local nel = 0;
-			startVert = 0;
+			local nv = 1;
+			local nvi = 1;
+			local nel = 1;
+			startVert = 1;
 
 			--for ( f = mesh.fHead.next; f ~= mesh.fHead; f = f.next )
 			f = mesh.fHead.next
@@ -3547,12 +3547,12 @@ local assert = function() end
 				edge = f.anEdge;
 				start = f.anEdge
 				repeat
-					this.vertices[nv] = edge.Org.coords[0];
-					nv = nv + 1
 					this.vertices[nv] = edge.Org.coords[1];
 					nv = nv + 1
+					this.vertices[nv] = edge.Org.coords[2];
+					nv = nv + 1
 					if ( vertexSize > 2 ) then
-						this.vertices[nv] = edge.Org.coords[2];
+						this.vertices[nv] = edge.Org.coords[3];
 						nv = nv + 1
 					end
 					this.vertexIndices[nvi] = edge.Org.idx;
@@ -3608,12 +3608,12 @@ local assert = function() end
 				end
 
 				--/* The new vertex is now e->Org. */
-				e.Org.coords[0] = vertices[i+0];
-				e.Org.coords[1] = vertices[i+1];
+				e.Org.coords[1] = vertices[i+0];
+				e.Org.coords[2] = vertices[i+1];
 				if ( size > 2 ) then
-					e.Org.coords[2] = vertices[i+2]; 
+					e.Org.coords[3] = vertices[i+2]; 
 				else
-					e.Org.coords[2] = 0.0;
+					e.Org.coords[3] = 0.0;
 				end
 				--/* Store the insertion number so that the vertex can be later recognized. */
 				e.Org.idx = this.vertexIndexCounter;
@@ -3640,9 +3640,9 @@ local assert = function() end
 			
 			if (normal)
 			then
-				this.normal[0] = normal[0];
 				this.normal[1] = normal[1];
 				this.normal[2] = normal[2];
+				this.normal[3] = normal[3];
 			end
 
 			this.windingRule = windingRule;
@@ -3761,11 +3761,11 @@ print("done in", tim()-t1, clk()-clk1)
 --require("jit.p").stop()
 
 if false then
-for i = 0,tess.elements.length-1,polisiz do
+for i = 1,tess.elements.length,polisiz do
 	--ctx.beginPath();
 	print" begin path"
-	for j = 0, polisiz-1 do
-		local idx = tess.elements[i+j];
+	for j = 1, polisiz do
+		local idx = tess.elements[i+j-1];
 		if (idx == -1) then goto continue end
 		if (j == 0) then
 			--ctx.moveTo(tess.vertices[idx*2+0], tess.vertices[idx*2+1]);
